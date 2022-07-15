@@ -20,13 +20,15 @@
 
 (def shader-spec
   {:vs "void main() {
-          gl_Position = proj * view * vec4(position, 1.0);
+          gl_Position = proj * view * model * vec4(position, 1.0);
        }"
    :fs "void main() {
            gl_FragColor = vec4(0.5, 0.5, 1.0, 1.0);
        }"
     :uniforms {:view       :mat4
-	       :proj       :mat4}
+	       :proj       :mat4
+	       :model	   :mat4
+	       }
     :attribs  {:position   :vec3}})
 
 (def triangle (geom/as-mesh (tri/triangle3 [[1 0 0] [0 0 0] [0 1 0]])
@@ -44,15 +46,16 @@
   [t]
   (geom/rotate-y mat/M44 (/ t 10)))
 
-(defn draw-frame! []
+(defn draw-frame! [t]
   (doto gl-ctx
         (gl/clear-color-and-depth-buffer 0 0 0 1 1)
-        (gl/draw-with-shader (combine-model-shader-and-camera triangle shader-spec camera))))
+        (gl/draw-with-shader (assoc-in (combine-model-shader-and-camera triangle shader-spec camera)
+	                               [:uniforms :model] (spin t)   ))))
 
-(println (combine-model-shader-and-camera triangle shader-spec camera))
+
 
 (defonce running
-  (anim/animate (fn [t] (draw-frame!) true)))
+  (anim/animate (fn [t] (draw-frame! t) true)))
 
 
 (println "Hello, World!")
