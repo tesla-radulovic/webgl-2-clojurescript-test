@@ -12,9 +12,19 @@
 
 (enable-console-print!)
 
+(defonce canvas (.getElementById js/document "main"))
+
+(println (.  js/window -innerWidth ) )
+
+(println (.  js/window -innerHeight ) )
+
+(set! (.-height canvas) (. js/window -innerHeight ))
+
+(set! (.-width canvas) (. js/window -innerWidth))
+
 (defonce gl-ctx (gl/gl-context "main"))
 
-(defonce camera (cam/perspective-camera {:aspect 1.0}))
+(defonce camera (cam/perspective-camera {:aspect (/ (.-height canvas) (.-width canvas))  }))
 
 (println camera)
 
@@ -34,11 +44,13 @@
 (def triangle (geom/as-mesh (tri/triangle3 [[1 0 0] [0 0 0] [0 1 0]])
                             {:mesh (glmesh/gl-mesh 3)}))
 
+(def shader (shaders/make-shader-from-spec gl-ctx shader-spec))
+
 (defn combine-model-shader-and-camera
   [model shader-spec camera]
   (-> model
     (gl/as-gl-buffer-spec {})
-    (assoc :shader (shaders/make-shader-from-spec gl-ctx shader-spec))
+    (assoc :shader shader)
     (gl/make-buffers-in-spec gl-ctx glc/static-draw)
     (cam/apply camera)))
 
