@@ -1,3 +1,4 @@
+
 (ns webgl-clojurescript-tutorial.core
     (:require
       [thi.ng.geom.gl.core :as gl]
@@ -22,24 +23,31 @@
 
 (set! (.-width canvas) (. js/window -innerWidth))
 
-(defonce gl-ctx (gl/gl-context "main"))
+(defonce gl-ctx (.getContext canvas "webgl2")  ) 
 
 (defonce camera (cam/perspective-camera {:aspect (/ (.-height canvas) (.-width canvas))  }))
 
-(println camera)
 
 (def shader-spec
   {:vs "void main() {
           gl_Position = proj * view * model * vec4(position, 1.0);
        }"
-   :fs "void main() {
-           gl_FragColor = vec4(0.5, 0.5, 1.0, 1.0);
+   :fs "
+       out vec4 outColor;
+       void main() {
+           outColor = vec4(0.5, 0.5, 1.0, 1.0);
        }"
-    :uniforms {:view       :mat4
+   :uniforms {:view       :mat4
 	       :proj       :mat4
 	       :model	   :mat4
 	       }
-    :attribs  {:position   :vec3}})
+   :attribs  {:position   :vec3}
+   :version "300 es"
+   })
+
+
+  
+
 
 (def triangle (geom/as-mesh (tri/triangle3 [[1 0 0] [0 0 0] [0 1 0]])
                             {:mesh (glmesh/gl-mesh 3)}))
@@ -65,6 +73,13 @@
 	                               [:uniforms :model] (spin t)   ))))
 
 
+(def key-events!
+  (list (fn [event] (println event)) )   ) 
+
+
+(defonce register-dom-events
+  (do (.addEventListener js/document "keydown" (fn [event] (map (fn [func] (func event)) key-events!) ) ) true))
+
 
 (defonce running
   (anim/animate (fn [t] (draw-frame! t) true)))
@@ -81,4 +96,5 @@
   ;; optionally touch your app-state to force rerendering depending on
   ;; your application
   ;; (swap! app-state update-in [:__figwheel_counter] inc)
-)
+  (map (fn [func] (func "hhh") key-events!))
+  )
