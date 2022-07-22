@@ -84,9 +84,33 @@
       input)))
 
 (def a-key (key-input! 65))
-                            
-;;todo add !
-(defn keydown [event]
+
+(defn loop-inputs [event f]
+  (if-let
+    [key-inputs
+       (get @key-handles
+            (.-keyCode event)
+            nil)]
+    (doseq [key-input key-inputs]
+      (swap! key-input f))))
+
+(defn keydown!
+  [event]
+  (loop-inputs
+   event
+   #(-> %
+     (assoc :just-pressed (or (not (% :is-pressed)) (% :just-pressed)))
+     (assoc :is-pressed true))))
+
+(defn keyup!
+  [event]
+  (loop-inputs
+   event
+   #(-> %
+      (assoc :is-pressed false)
+      (assoc :just-released true))))
+
+#_(defn keydown! [event]
   (if-let
     [key-inputs
       (get @key-handles
@@ -98,7 +122,8 @@
         #(-> %
              (assoc :just-pressed (or (not (% :is-pressed)) (% :just-pressed)))
              (assoc :is-pressed true))))))
-(defn keyup [event]
+
+#_(defn keyup! [event]
  (if-let
       [key-inputs
         (get @key-handles
@@ -117,8 +142,8 @@
       (assoc :just-released false)))
 
 (defonce register-dom-events
-  (do (.addEventListener js/document "keydown" keydown)
-      (.addEventListener js/document "keyup" keyup)
+  (do (.addEventListener js/document "keydown" keydown!)
+      (.addEventListener js/document "keyup" keyup!)
       true))
 
 
