@@ -1,4 +1,3 @@
-
 (ns webgl-clojurescript-tutorial.core
     (:require
       [thi.ng.geom.gl.core :as gl]
@@ -73,12 +72,18 @@
 	                               [:uniforms :model] (spin t)   ))))
 
 
-(def key-events!
-  (list (fn [event] (println event)) )   ) 
+;;(def key-events!
+;;  (list (fn [event] (println event)) )   ) 
 
+;;(def key-down!
+;;  [event]
+;;  (println "hi lol"))
+
+(defn keydown [event] (println (.-key event)))
 
 (defonce register-dom-events
-  (do (.addEventListener js/document "keydown" (fn [event] (map (fn [func] (func event)) key-events!) ) ) true))
+  (do (.addEventListener js/document "keydown" (fn [event] (keydown event))  ) true))
+
 
 
 (defonce running
@@ -96,5 +101,5 @@
   ;; optionally touch your app-state to force rerendering depending on
   ;; your application
   ;; (swap! app-state update-in [:__figwheel_counter] inc)
-  (map (fn [func] (func "hhh") key-events!))
+;;  (map (fn [func] (func "hhh") key-events!))
   )

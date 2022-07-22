@@ -19,7 +19,7 @@
 
   :cljsbuild {:builds
               [{:id "dev"
-                :source-paths ["src"]
+                :source-paths ["src" "../geom/src"]
 
                 ;; The presence of a :figwheel configuration here
                 ;; will cause figwheel to inject the figwheel client
@@ -43,7 +43,7 @@
                ;; production. You can build this with:
                ;; lein cljsbuild once min
                {:id "min"
-                :source-paths ["src"]
+                :source-paths ["src" "../geom/src"]
                 :compiler {:output-to "resources/public/js/compiled/webgl_clojurescript_tutorial.js"
                            :main webgl-clojurescript-tutorial.core
                            :optimizations :advanced
