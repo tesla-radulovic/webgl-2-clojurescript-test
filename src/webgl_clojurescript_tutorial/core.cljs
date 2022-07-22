@@ -65,12 +65,6 @@
   [t]
   (geom/rotate-y mat/M44 (/ t 10)))
 
-(defn draw-frame! [t]
-  (doto gl-ctx
-        (gl/clear-color-and-depth-buffer 0 0 0 1 1)
-        (gl/draw-with-shader (assoc-in (combine-model-shader-and-camera triangle shader-spec camera)
-	                               [:uniforms :model] (spin t)   ))))
-
 
 ;;(def key-events!
 ;;  (list (fn [event] (println event)) )   ) 
@@ -79,11 +73,63 @@
 ;;  [event]
 ;;  (println "hi lol"))
 
-(defn keydown [event] (println (.-key event)))
+(def key-handles (atom {}))
+
+(defn key-input! [keycode]
+  (let
+    [ input (atom {:is-pressed false :just-pressed false :just-released false}) ] 
+    (do
+      (swap! key-handles assoc keycode (cons input (get @key-handles keycode nil)))
+      (println @key-handles)
+      input)))
+
+(def a-key (key-input! 65))
+                            
+;;todo add !
+(defn keydown [event]
+  (if-let
+    [key-inputs
+      (get @key-handles
+        (.-keyCode event)
+        nil)]
+    (doseq [key-input key-inputs]
+      (swap!
+        key-input
+        #(-> %
+             (assoc :just-pressed (or (not (% :is-pressed)) (% :just-pressed)))
+             (assoc :is-pressed true))))))
+(defn keyup [event]
+ (if-let
+      [key-inputs
+        (get @key-handles
+            (.-keyCode event)
+            nil)]
+      (doseq [key-input key-inputs]
+          (swap!
+            key-input
+            #(-> %
+                 (assoc :is-pressed false)
+                 (assoc :just-released true))))))
+
+(defn update-input [input]
+  (-> input
+      (assoc :just-pressed false)
+      (assoc :just-released false)))
 
 (defonce register-dom-events
-  (do (.addEventListener js/document "keydown" (fn [event] (keydown event))  ) true))
+  (do (.addEventListener js/document "keydown" keydown)
+      (.addEventListener js/document "keyup" keyup)
+      true))
 
+
+(defn draw-frame! [t]
+  (do
+    ;;(println @a-key)
+    (swap! a-key update-input)
+    (doto gl-ctx
+        (gl/clear-color-and-depth-buffer 0 0 0 1 1)
+        (gl/draw-with-shader (assoc-in (combine-model-shader-and-camera triangle shader-spec camera)
+	                               [:uniforms :model] (spin t)   )))))
 
 
 (defonce running
@@ -95,6 +141,8 @@
 ;; define your app data so that it doesn't get over-written on reload
 
 (defonce app-state (atom {:text "Hello world!"}))
+
+
 
 
 (defn on-js-reload []
