@@ -65,14 +65,6 @@
   [t]
   (geom/rotate-y mat/M44 (/ t 10)))
 
-
-;;(def key-events!
-;;  (list (fn [event] (println event)) )   ) 
-
-;;(def key-down!
-;;  [event]
-;;  (println "hi lol"))
-
 (def key-handles (transient {}))
 
 (defn key-input! [keycode]
@@ -80,8 +72,11 @@
     [ input (transient {:is-pressed false :just-pressed false :just-released false}) ] 
     (do
       (assoc! key-handles keycode (cons input (get key-handles keycode nil)))
-      (println key-handles)
       input)))
+
+(defn and-input!
+  [& inputs]
+  (transient {:is-pressed false :just-pressed false :just-released false :and inputs}))
 
 (def a-key (key-input! 65))
 
@@ -93,12 +88,6 @@
             nil)]
     (doseq [key-input key-inputs]
       (f key-input))))
-
-;;what do we want?
-;;we want a (macro?) which creates a function
-;;this function reads the current boolean value of some keys in a map
-;;this function compares those values with a particular set of desired values
-;;if the values match, the values are swapped, if they dont they are discarded
 
 (defn keydown!
   [event]
@@ -116,36 +105,30 @@
       (assoc! :is-pressed false)
       (assoc! :just-released true))))
 
-#_(defn keydown! [event]
-  (if-let
-    [key-inputs
-      (get @key-handles
-        (.-keyCode event)
-        nil)]
-    (doseq [key-input key-inputs]
-      (swap!
-        key-input
-        #(-> %
-             (assoc :just-pressed (or (not (% :is-pressed)) (% :just-pressed)))
-             (assoc :is-pressed true))))))
-
-#_(defn keyup! [event]
- (if-let
-      [key-inputs
-        (get @key-handles
-            (.-keyCode event)
-            nil)]
-      (doseq [key-input key-inputs]
-          (swap!
-            key-input
-            #(-> %
-                 (assoc :is-pressed false)
-                 (assoc :just-released true))))))
-
 (defn update-input! [input]
   (-> input
       (assoc! :just-pressed false)
       (assoc! :just-released false)))
+
+(defn update-and! [and-input?]
+  (if-let [inputs (and-input? :and)]
+    (let
+        [out
+         (-> and-input?
+           (assoc! :just-pressed
+                 (and
+                  (every? #(% :is-pressed) inputs)
+                  (some #(% :just-pressed) inputs)))
+           (assoc! :just-released
+                  (and
+                   (and-input? :is-pressed)
+                   (some #(% :just-released) inputs)))
+           (assoc! :is-pressing (every? #(% :is-pressed) inputs)))]
+      (do (doseq [input inputs] (update-input! input)) out))
+    and-input?))
+      
+        
+
 
 
 
