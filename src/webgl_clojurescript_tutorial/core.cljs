@@ -73,14 +73,14 @@
 ;;  [event]
 ;;  (println "hi lol"))
 
-(def key-handles (atom {}))
+(def key-handles (transient {}))
 
 (defn key-input! [keycode]
   (let
-    [ input (atom {:is-pressed false :just-pressed false :just-released false}) ] 
+    [ input (transient {:is-pressed false :just-pressed false :just-released false}) ] 
     (do
-      (swap! key-handles assoc keycode (cons input (get @key-handles keycode nil)))
-      (println @key-handles)
+      (assoc! key-handles keycode (cons input (get key-handles keycode nil)))
+      (println key-handles)
       input)))
 
 (def a-key (key-input! 65))
@@ -88,27 +88,33 @@
 (defn loop-inputs [event f]
   (if-let
     [key-inputs
-       (get @key-handles
+       (get key-handles
             (.-keyCode event)
             nil)]
     (doseq [key-input key-inputs]
-      (swap! key-input f))))
+      (f key-input))))
+
+;;what do we want?
+;;we want a (macro?) which creates a function
+;;this function reads the current boolean value of some keys in a map
+;;this function compares those values with a particular set of desired values
+;;if the values match, the values are swapped, if they dont they are discarded
 
 (defn keydown!
   [event]
   (loop-inputs
    event
    #(-> %
-     (assoc :just-pressed (or (not (% :is-pressed)) (% :just-pressed)))
-     (assoc :is-pressed true))))
+     (assoc! :just-pressed (or (not (% :is-pressed)) (% :just-pressed)))
+     (assoc! :is-pressed true))))
 
 (defn keyup!
   [event]
   (loop-inputs
    event
    #(-> %
-      (assoc :is-pressed false)
-      (assoc :just-released true))))
+      (assoc! :is-pressed false)
+      (assoc! :just-released true))))
 
 #_(defn keydown! [event]
   (if-let
@@ -136,10 +142,12 @@
                  (assoc :is-pressed false)
                  (assoc :just-released true))))))
 
-(defn update-input [input]
+(defn update-input! [input]
   (-> input
-      (assoc :just-pressed false)
-      (assoc :just-released false)))
+      (assoc! :just-pressed false)
+      (assoc! :just-released false)))
+
+
 
 (defonce register-dom-events
   (do (.addEventListener js/document "keydown" keydown!)
@@ -149,8 +157,8 @@
 
 (defn draw-frame! [t]
   (do
-    ;;(println @a-key)
-    (swap! a-key update-input)
+    #_(println (a-key :is-pressed) (a-key :just-pressed) (a-key :just-released) )
+    (update-input! a-key)
     (doto gl-ctx
         (gl/clear-color-and-depth-buffer 0 0 0 1 1)
         (gl/draw-with-shader (assoc-in (combine-model-shader-and-camera triangle shader-spec camera)
@@ -175,4 +183,5 @@
   ;; your application
   ;; (swap! app-state update-in [:__figwheel_counter] inc)
 ;;  (map (fn [func] (func "hhh") key-events!))
+  (println "reloaded")
   )
