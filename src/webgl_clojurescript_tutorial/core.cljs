@@ -80,6 +80,10 @@
 
 (def a-key (key-input! 65))
 
+(def d-key (key-input! 68))
+
+(def a-and-d (and-input! a-key d-key))
+
 (defn loop-inputs [event f]
   (if-let
     [key-inputs
@@ -105,10 +109,8 @@
       (assoc! :is-pressed false)
       (assoc! :just-released true))))
 
-(defn update-input! [input]
-  (-> input
-      (assoc! :just-pressed false)
-      (assoc! :just-released false)))
+
+(declare update-and! update-input!)
 
 (defn update-and! [and-input?]
   (if-let [inputs (and-input? :and)]
@@ -123,11 +125,16 @@
                   (and
                    (and-input? :is-pressed)
                    (some #(% :just-released) inputs)))
-           (assoc! :is-pressing (every? #(% :is-pressed) inputs)))]
-      (do (doseq [input inputs] (update-input! input)) out))
+           (assoc! :is-pressed (every? #(% :is-pressed) inputs)))]
+      (do #_(println "here") (doseq [input inputs] (update-input! input)) out))
     and-input?))
       
-        
+
+(defn update-input! [input]
+  (-> input
+      (assoc! :just-pressed false)
+      (assoc! :just-released false)
+      (update-and!)))        
 
 
 
@@ -140,8 +147,8 @@
 
 (defn draw-frame! [t]
   (do
-    #_(println (a-key :is-pressed) (a-key :just-pressed) (a-key :just-released) )
-    (update-input! a-key)
+    #_(println (a-and-d :is-pressed) (a-and-d :just-pressed) (a-and-d :just-released) )
+    (update-input! a-and-d)
     (doto gl-ctx
         (gl/clear-color-and-depth-buffer 0 0 0 1 1)
         (gl/draw-with-shader (assoc-in (combine-model-shader-and-camera triangle shader-spec camera)
