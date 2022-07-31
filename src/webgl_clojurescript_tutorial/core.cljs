@@ -1,7 +1,8 @@
 (ns webgl-clojurescript-tutorial.core
-    (:require
+  (:require
       [thi.ng.geom.gl.core :as gl]
       [thi.ng.geom.matrix :as mat]
+      [thi.ng.geom.vector :as v]
       [thi.ng.geom.triangle :as tri]
       [thi.ng.geom.core :as geom]
       [thi.ng.geom.gl.glmesh :as glmesh]
@@ -13,6 +14,11 @@
 (enable-console-print!)
 
 (defonce canvas (.getElementById js/document "main"))
+
+(defonce pointer-lock (do (.addEventListener canvas "click"
+                                (fn
+                                  [event]
+                                  (.requestPointerLock canvas))) true))
 
 (println (.  js/window -innerWidth ) )
 
@@ -51,6 +57,8 @@
 (def triangle (geom/as-mesh (tri/triangle3 [[1 0 0] [0 0 0] [0 1 0]])
                             {:mesh (glmesh/gl-mesh 3)}))
 
+(def view (transient {:y-angle 0.0}))
+
 (def shader (shaders/make-shader-from-spec gl-ctx shader-spec))
 
 (defn combine-model-shader-and-camera
@@ -65,7 +73,11 @@
   [t]
   (geom/rotate-y mat/M44 (/ t 10)))
 
+(defn get-view [] (geom/rotate-y mat/M44 (view :y-angle)))
+
 (def key-handles (transient {}))
+
+(def mouse-handles (transient {}))
 
 (defn key-input! [keycode]
   (let
@@ -82,9 +94,7 @@
 
 (def d-key (key-input! 68))
 
-(def a-and-d (and-input! a-key d-key))
-
-(defn loop-inputs [event f]
+(defn loop-key-inputs [event f]
   (if-let
     [key-inputs
        (get key-handles
@@ -95,7 +105,7 @@
 
 (defn keydown!
   [event]
-  (loop-inputs
+  (loop-key-inputs
    event
    #(-> %
      (assoc! :just-pressed (or (not (% :is-pressed)) (% :just-pressed)))
@@ -103,12 +113,11 @@
 
 (defn keyup!
   [event]
-  (loop-inputs
+  (loop-key-inputs
    event
    #(-> %
       (assoc! :is-pressed false)
       (assoc! :just-released true))))
-
 
 (declare update-and! update-input!)
 
@@ -126,7 +135,7 @@
                    (and-input? :is-pressed)
                    (some #(% :just-released) inputs)))
            (assoc! :is-pressed (every? #(% :is-pressed) inputs)))]
-      (do #_(println "here") (doseq [input inputs] (update-input! input)) out))
+      (do (doseq [input inputs] (update-input! input)) out))
     and-input?))
       
 
@@ -134,7 +143,7 @@
   (-> input
       (assoc! :just-pressed false)
       (assoc! :just-released false)
-      (update-and!)))        
+      (update-and!)))
 
 
 
@@ -144,15 +153,32 @@
       (.addEventListener js/document "keyup" keyup!)
       true))
 
+(defn focus? [] (= (.-pointerLockElement js/document) canvas))
+
+
 
 (defn draw-frame! [t]
   (do
     #_(println (a-and-d :is-pressed) (a-and-d :just-pressed) (a-and-d :just-released) )
-    (update-input! a-and-d)
+
+    (if (a-key :is-pressed) (assoc! view :y-angle (+ (view :y-angle) 0.01)))
+    (if (d-key :is-pressed) (assoc! view :y-angle (- (view :y-angle) 0.01)))
+    
+    
+    (if (focus?) (do (update-input! a-key) (update-input! d-key)))
+    #_(println (.cos js/Math t) (.sin js/Math t))
     (doto gl-ctx
         (gl/clear-color-and-depth-buffer 0 0 0 1 1)
-        (gl/draw-with-shader (assoc-in (combine-model-shader-and-camera triangle shader-spec camera)
-	                               [:uniforms :model] (spin t)   )))))
+        (gl/draw-with-shader
+         (->
+          (combine-model-shader-and-camera triangle shader-spec camera)
+          (assoc-in [:uniforms :model] (spin 0)   )
+          #_(assoc-in [:uniforms :view] (get-view))
+          (assoc-in [:uniforms :view] (mat/look-at
+                                       (v/vec3 4 0 4)
+                                       (v/vec3 (+ 4 (.cos js/Math t)) 0 (+ 4 (.sin js/Math t)))
+                                       (v/vec3 0 1 0)))
+         )))))
 
 
 (defonce running
@@ -166,12 +192,12 @@
 (defonce app-state (atom {:text "Hello world!"}))
 
 
-
-
 (defn on-js-reload []
   ;; optionally touch your app-state to force rerendering depending on
   ;; your application
   ;; (swap! app-state update-in [:__figwheel_counter] inc)
 ;;  (map (fn [func] (func "hhh") key-events!))
   (println "reloaded")
+  (println (get-view))
+  
   )
