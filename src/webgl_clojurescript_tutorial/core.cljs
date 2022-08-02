@@ -1,6 +1,7 @@
 (ns webgl-clojurescript-tutorial.core
   (:require
       [thi.ng.geom.gl.core :as gl]
+      [thi.ng.math.core :as m]
       [thi.ng.geom.matrix :as mat]
       [thi.ng.geom.vector :as v]
       [thi.ng.geom.triangle :as tri]
@@ -90,6 +91,10 @@
   [& inputs]
   (transient {:is-pressed false :just-pressed false :just-released false :and inputs}))
 
+(def w-key (key-input! (.charCodeAt "w" 0)))
+
+(println w-key)
+
 (def a-key (key-input! 65))
 
 (def d-key (key-input! 68))
@@ -155,15 +160,17 @@
 
 (defn focus? [] (= (.-pointerLockElement js/document) canvas))
 
+(def eye (v/vec3 4 0 0 ) )
 
+(defn look [t] (v/vec3 (.cos js/Math t) 0 (.sin js/Math t)))
 
 (defn draw-frame! [t]
   (do
     #_(println (a-and-d :is-pressed) (a-and-d :just-pressed) (a-and-d :just-released) )
 
-    (if (a-key :is-pressed) (assoc! view :y-angle (+ (view :y-angle) 0.01)))
-    (if (d-key :is-pressed) (assoc! view :y-angle (- (view :y-angle) 0.01)))
-    
+    (if (a-key :is-pressed) (assoc! view :y-angle (- (view :y-angle) 0.01)))
+    (if (d-key :is-pressed) (assoc! view :y-angle (+ (view :y-angle) 0.01)))
+   ;; (if (w-key :is-pressed) (set! eye (+ eye (
     
     (if (focus?) (do (update-input! a-key) (update-input! d-key)))
     #_(println (.cos js/Math t) (.sin js/Math t))
@@ -172,11 +179,11 @@
         (gl/draw-with-shader
          (->
           (combine-model-shader-and-camera triangle shader-spec camera)
-          (assoc-in [:uniforms :model] (spin 0)   )
+          (assoc-in [:uniforms :model] (spin t ))
           #_(assoc-in [:uniforms :view] (get-view))
           (assoc-in [:uniforms :view] (mat/look-at
-                                       (v/vec3 4 0 4)
-                                       (v/vec3 (+ 4 (.cos js/Math t)) 0 (+ 4 (.sin js/Math t)))
+                                       eye
+                                       (m/+ eye (look (view :y-angle)))
                                        (v/vec3 0 1 0)))
          )))))
 
