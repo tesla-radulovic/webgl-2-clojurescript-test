@@ -31,12 +31,13 @@
 
 (defonce gl-ctx (.getContext canvas "webgl2")  ) 
 
-(defonce camera (cam/perspective-camera {:aspect (/ (.-height canvas) (.-width canvas))  }))
+(defonce camera (cam/perspective-camera {:aspect 1.0 #_(/ (.-height canvas) (.-width canvas))  }))
 
+(defn aspect-ratio [] (/ (.-height canvas)  (.-width canvas)   ))
 
 (def shader-spec
   {:vs "void main() {
-          gl_Position = proj * view * model * vec4(position, 1.0);
+          gl_Position = proj * view * model * vec4(position, 1.0) *  vec4( aspect, 1, 1, 1 );
        }"
    :fs "
        out vec4 outColor;
@@ -44,8 +45,9 @@
            outColor = vec4(0.5, 0.5, 1.0, 1.0);
        }"
    :uniforms {:view       :mat4
-	       :proj       :mat4
-	       :model	   :mat4
+	      :proj       :mat4
+	      :model	  :mat4
+              :aspect     :float
 	       }
    :attribs  {:position   :vec3}
    :version "300 es"
@@ -58,7 +60,7 @@
 (def triangle (geom/as-mesh (tri/triangle3 [[1 0 0] [0 0 0] [0 1 0]])
                             {:mesh (glmesh/gl-mesh 3)}))
 
-(def view (transient {:y-angle 0.0}))
+(def view (transient {:y-angle 0.0 :xz-angle 0.0} ))
 
 (def shader (shaders/make-shader-from-spec gl-ctx shader-spec))
 
@@ -91,13 +93,15 @@
   [& inputs]
   (transient {:is-pressed false :just-pressed false :just-released false :and inputs}))
 
-(def w-key (key-input! (.charCodeAt "w" 0)))
+(def w-key (key-input! 87))
 
-(println w-key)
+(def s-key (key-input! 83))
 
 (def a-key (key-input! 65))
 
 (def d-key (key-input! 68))
+
+(def space-key (key-input! 32))
 
 (defn loop-key-inputs [event f]
   (if-let
@@ -151,28 +155,57 @@
       (update-and!)))
 
 
+(defn focus? [] (= (.-pointerLockElement js/document) canvas))
+
+
+(defn update-mouse-view! [event]
+  (if (focus?) (->
+    view
+    (assoc! :y-angle (+ (view :y-angle) (* 0.01 (.-movementX event))))
+    (assoc! :y-angle (mod (view :y-angle) (* 2.0 3.1415926535)))
+    (assoc! :xz-angle (- (view :xz-angle) (* 0.01 (.-movementY event))))
+    (assoc! :xz-angle
+            (->
+             (view :xz-angle)
+             (max (* -0.5 3.1415926535))
+             (min (*  0.5 3.1415926535)))))))
 
 
 (defonce register-dom-events
   (do (.addEventListener js/document "keydown" keydown!)
       (.addEventListener js/document "keyup" keyup!)
+      (.addEventListener js/document "mousemove" update-mouse-view!)
       true))
 
-(defn focus? [] (= (.-pointerLockElement js/document) canvas))
+(def eye (v/vec3 -4 0 0 ) )
 
-(def eye (v/vec3 4 0 0 ) )
+(defn look [view] (v/vec3
+                   (* (.cos js/Math (view :xz-angle) ) (.cos js/Math (view :y-angle) ) )
+                   (.sin js/Math (view :xz-angle))
+                   (* (.cos js/Math (view :xz-angle) ) (.sin js/Math (view :y-angle) ) ) ))
 
-(defn look [t] (v/vec3 (.cos js/Math t) 0 (.sin js/Math t)))
+(defn left-90 [view] (v/vec3
+                      (.cos js/Math (+ (* 0.5 3.1415926535) (view :y-angle)))
+                      0
+                      (.sin js/Math (+ (* 0.5 3.1415926535) (view :y-angle))) ))
+
+
 
 (defn draw-frame! [t]
   (do
     #_(println (a-and-d :is-pressed) (a-and-d :just-pressed) (a-and-d :just-released) )
 
-    (if (a-key :is-pressed) (assoc! view :y-angle (- (view :y-angle) 0.01)))
-    (if (d-key :is-pressed) (assoc! view :y-angle (+ (view :y-angle) 0.01)))
-   ;; (if (w-key :is-pressed) (set! eye (+ eye (
+    (if (a-key :is-pressed) (set! eye (m/- eye (m/* (left-90 view) 0.05))))
+    (if (d-key :is-pressed) (set! eye (m/+ eye (m/* (left-90 view) 0.05))))
+    (if (w-key :is-pressed) (set! eye (m/+ eye (m/* (look view) 0.05))))
+    (if (s-key :is-pressed) (set! eye (m/- eye (m/* (look view) 0.05))))
+    (if (space-key :is-pressed) (set! eye (m/+ eye (v/vec3 0 0.05 0))))
     
-    (if (focus?) (do (update-input! a-key) (update-input! d-key)))
+    (if
+      (focus?)
+      (doseq
+          [key [a-key d-key w-key s-key space-key]]
+          (update-input! key)))
     #_(println (.cos js/Math t) (.sin js/Math t))
     (doto gl-ctx
         (gl/clear-color-and-depth-buffer 0 0 0 1 1)
@@ -180,10 +213,11 @@
          (->
           (combine-model-shader-and-camera triangle shader-spec camera)
           (assoc-in [:uniforms :model] (spin t ))
+          (assoc-in [:uniforms :aspect] (aspect-ratio))
           #_(assoc-in [:uniforms :view] (get-view))
           (assoc-in [:uniforms :view] (mat/look-at
                                        eye
-                                       (m/+ eye (look (view :y-angle)))
+                                       (m/+ eye (look view))
                                        (v/vec3 0 1 0)))
          )))))
 
